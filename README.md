@@ -2,12 +2,22 @@
 
 A personal reading, knowledge and (eventually) infinite-canvas workspace.
 
-**Phase 1 is complete**: authentication, the app shell with a Chrome-like tab
-system, the library, book detail, reading progress, notes, quotes, reviews, the
-"What I Learned" record, reading goals, statistics and activity.
+**Reading side (Phase 1) is complete**: authentication, the app shell with a
+Chrome-like tab system, the library, book detail, reading progress, notes,
+quotes, reviews, the "What I Learned" record, reading goals, statistics and
+activity.
 
-Phases 2–6 (Spaces / infinite canvas, collaboration, templates, knowledge graph,
-social, AI) are **not** built. Nothing in the UI pretends they are.
+**Workspace side (Spaces) is built**: an infinite canvas with pan/zoom, text,
+sticky notes, shapes, frames, connectors that follow their objects, freehand
+drawing, tables, images, file cards with real PDF previews, link cards, and live
+book / note / quote cards that read through to the reading side. Plus multi-page
+Spaces, templates, a file library, presentation mode, focus mode, minimap,
+snapping, grouping, layers, undo/redo and autosave.
+
+**Not built: real-time collaboration, sharing links, roles/permissions and
+team spaces.** These need a server that enforces access; they cannot be done
+honestly in a browser-only build. There is no disabled "Share" button pretending
+otherwise — see *What Spaces cannot do yet* below.
 
 ## Running it
 
@@ -119,13 +129,48 @@ no flash.
 | `⌘\` | Collapse / expand the sidebar |
 | `Esc` | Close a dialog |
 
-## What Phase 2 needs
+## Spaces — how the canvas works
 
-Spaces (the infinite canvas) is the next pillar. It needs its own tables —
-`spaces`, `space_objects`, `space_members`, `space_comments`, `files`,
-`templates` — which are deliberately *not* in migration 0001, so the canvas data
-model can drive their shape rather than the other way round. The `tabs.kind`
-enum and the sidebar already leave room for them.
+`src/stores/canvas.ts` is the engine: objects, selection, viewport, history and
+autosave. `src/components/canvas/CanvasStage.tsx` is the interaction surface —
+one pointer-event state machine covering pan, marquee, lasso, move, resize,
+rotate, draw and connector-drag.
+
+**Object model.** Every object is one row with a `type` plus free-form `content`
+and `style` bags. Adding an object type means adding a renderer in
+`ObjectView.tsx`, not a new table or a branch through the engine.
+
+**Connectors** store endpoint *ids*, not coordinates. Geometry is resolved from
+the live objects on every render, which is why a connector follows the boxes it
+joins instead of going stale.
+
+**Undo** batches a whole drag into one step: `beginInteraction()` snapshots on
+pointer-down, `endInteraction()` pushes it only if something actually changed.
+
+**Autosave** debounces to 700 ms and writes the page's objects, then flushes
+synchronously on page switch and unmount. Status shows Saving / Saved / Changes
+not synced.
+
+**Performance.** Objects are culled to the viewport before rendering, and
+`ObjectView` is memoized on identity, so dragging one object does not re-render
+the rest.
+
+## What Spaces cannot do yet
+
+Deliberately absent rather than faked:
+
+- **Real-time collaboration, cursors, comments, mentions, reactions, share
+  links, roles.** All of it requires a server as the authority. Building a
+  browser-only version would be a demo, not a feature.
+- **DOCX / PPTX previews.** These need a server-side converter. Those files
+  upload, store, list and download intact; the viewer says why there is no
+  preview instead of showing a fake one.
+- **Link card titles.** Pasting a URL makes a real link card, but the browser
+  cannot fetch cross-origin metadata, so the card shows the URL and host rather
+  than a scraped title.
+- **Space thumbnails** are placeholders; the column exists and is populated by
+  nothing yet.
+- **PNG/PDF export.** JSON export of a page works; raster export does not.
 
 ## Originality
 

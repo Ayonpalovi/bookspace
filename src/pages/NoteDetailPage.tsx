@@ -16,6 +16,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { AddToSpaceButton } from '@/components/canvas/AddToSpaceDialog'
 import { Input, NativeSelect } from '@/components/ui/field'
 import { Badge, EmptyState, PageLoader, Segmented } from '@/components/ui/primitives'
 import { toast } from '@/components/ui/toast'
@@ -197,6 +198,11 @@ export function NoteDetailPage() {
             { value: 'write', label: 'Write', icon: <Pencil /> },
             { value: 'preview', label: 'Preview', icon: <Eye /> },
           ]}
+        />
+        <AddToSpaceButton
+          type="note_card"
+          content={{ noteId: note.id }}
+          label={note.title || 'Note'}
         />
         <Button
           size="icon"

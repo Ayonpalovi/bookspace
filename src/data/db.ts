@@ -8,7 +8,13 @@
  */
 
 export const DB_NAME = 'bookspace'
-export const DB_VERSION = 1
+
+/**
+ * v2 adds the Spaces stores. The upgrade path is purely additive — it creates
+ * missing stores and indexes and never touches existing ones — so a v1 database
+ * keeps every book, note, quote, review and reading session it already had.
+ */
+export const DB_VERSION = 2
 
 export type StoreName =
   | 'profiles'
@@ -26,6 +32,12 @@ export type StoreName =
   | 'tabs'
   | 'credentials'
   | 'meta'
+  // --- v2: Spaces ---
+  | 'spaces'
+  | 'space_pages'
+  | 'space_objects'
+  | 'space_templates'
+  | 'files'
 
 interface StoreSpec {
   name: StoreName
@@ -114,6 +126,46 @@ const STORES: StoreSpec[] = [
   { name: 'tabs', keyPath: 'id', indexes: [{ name: 'by_user', keyPath: 'userId' }] },
   { name: 'credentials', keyPath: 'email' },
   { name: 'meta', keyPath: 'key' },
+
+  /* ------------------------------------------------------------ v2: Spaces */
+  {
+    name: 'spaces',
+    keyPath: 'id',
+    indexes: [
+      { name: 'by_user', keyPath: 'userId' },
+      { name: 'by_book', keyPath: 'bookId' },
+    ],
+  },
+  {
+    name: 'space_pages',
+    keyPath: 'id',
+    indexes: [
+      { name: 'by_space', keyPath: 'spaceId' },
+      { name: 'by_user', keyPath: 'userId' },
+    ],
+  },
+  {
+    name: 'space_objects',
+    keyPath: 'id',
+    indexes: [
+      { name: 'by_page', keyPath: 'pageId' },
+      { name: 'by_space', keyPath: 'spaceId' },
+      { name: 'by_user', keyPath: 'userId' },
+    ],
+  },
+  {
+    name: 'space_templates',
+    keyPath: 'id',
+    indexes: [{ name: 'by_user', keyPath: 'userId' }],
+  },
+  {
+    name: 'files',
+    keyPath: 'id',
+    indexes: [
+      { name: 'by_user', keyPath: 'userId' },
+      { name: 'by_space', keyPath: 'spaceId' },
+    ],
+  },
 ]
 
 let dbPromise: Promise<IDBDatabase> | null = null

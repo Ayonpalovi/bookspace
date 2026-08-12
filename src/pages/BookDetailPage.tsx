@@ -4,6 +4,7 @@ import {
   BookOpen,
   CircleSlash,
   Heart,
+  LayoutDashboard,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -19,6 +20,7 @@ import { ProgressControl } from '@/components/books/ProgressControl'
 import { NoteCard } from '@/components/notes/NoteCard'
 import { QuoteCard } from '@/components/quotes/QuoteCard'
 import { QuoteDialog } from '@/components/quotes/QuoteDialog'
+import { AddToSpaceButton } from '@/components/canvas/AddToSpaceDialog'
 import { Button } from '@/components/ui/button'
 import { Field, Input, NativeSelect, Textarea } from '@/components/ui/field'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -43,6 +45,7 @@ import { toast } from '@/components/ui/toast'
 import { useAsync } from '@/hooks/useAsync'
 import { useTab } from '@/hooks/useTab'
 import * as repo from '@/data/repository'
+import * as spaceRepo from '@/data/spaces'
 import { bump, useVersion } from '@/stores/data'
 import { useSession } from '@/stores/session'
 import { useTabs } from '@/stores/tabs'
@@ -90,7 +93,7 @@ export function BookDetailPage() {
     async () => {
       const entry = await repo.getLibraryEntry(profile.id, bookId)
       if (!entry) return null
-      const [notes, quotes, review, learning, shelves, sessions, activity] =
+      const [notes, quotes, review, learning, shelves, sessions, activity, knowledgeSpace] =
         await Promise.all([
           repo.listNotes(profile.id, bookId),
           repo.listQuotes(profile.id, bookId),
@@ -99,6 +102,7 @@ export function BookDetailPage() {
           repo.listShelves(profile.id),
           repo.listSessions(profile.id, bookId),
           repo.listActivity(profile.id, 300),
+          spaceRepo.getSpaceForBook(profile.id, bookId),
         ])
       return {
         entry,
@@ -108,6 +112,7 @@ export function BookDetailPage() {
         learning,
         shelves,
         sessions,
+        knowledgeSpace,
         activity: activity.filter((a) => a.bookId === bookId),
       }
     },
@@ -153,7 +158,8 @@ export function BookDetailPage() {
     )
   }
 
-  const { entry, notes, quotes, review, learning, shelves, sessions, activity } = data
+  const { entry, notes, quotes, review, learning, shelves, sessions, activity, knowledgeSpace } =
+    data
   const { book, userBook, percent } = entry
   const StatusIcon = STATUS_ICON[userBook.status]
 
@@ -295,6 +301,35 @@ export function BookDetailPage() {
             <Button size="sm" onClick={() => setTab('review')}>
               <Pencil /> {review ? 'Edit review' : 'Write review'}
             </Button>
+            <Button
+              size="sm"
+              variant={knowledgeSpace ? 'secondary' : 'primary'}
+              onClick={async () => {
+                if (knowledgeSpace) {
+                  navigate(`/spaces/${knowledgeSpace.id}`)
+                  return
+                }
+                try {
+                  const { space } = await spaceRepo.createBookSpace(profile.id, book.id)
+                  bump('spaces', 'activity')
+                  toast.success('Knowledge Space created')
+                  navigate(`/spaces/${space.id}`)
+                } catch (caught) {
+                  toast.error(
+                    'Could not create the Space',
+                    caught instanceof Error ? caught.message : undefined,
+                  )
+                }
+              }}
+            >
+              <LayoutDashboard />
+              {knowledgeSpace ? 'Open Knowledge Space' : 'Create Knowledge Space'}
+            </Button>
+            <AddToSpaceButton
+              type="book_card"
+              content={{ bookId: book.id }}
+              label={book.title}
+            />
           </div>
 
           <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3">

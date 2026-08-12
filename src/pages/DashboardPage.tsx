@@ -3,6 +3,7 @@ import {
   BookText,
   Clock,
   Flame,
+  LayoutDashboard,
   Plus,
   Quote as QuoteIcon,
   Target,
@@ -26,6 +27,7 @@ import {
 import { useAsync } from '@/hooks/useAsync'
 import { useTab } from '@/hooks/useTab'
 import * as repo from '@/data/repository'
+import * as spaceRepo from '@/data/spaces'
 import { useSession } from '@/stores/session'
 import { useVersion } from '@/stores/data'
 import { formatNumber, pluralize, relativeTime } from '@/lib/utils'
@@ -38,26 +40,28 @@ export function DashboardPage() {
   const notesVersion = useVersion('notes')
   const quotesVersion = useVersion('quotes')
   const goalsVersion = useVersion('goals')
+  const spacesVersion = useVersion('spaces')
   const [addOpen, setAddOpen] = useState(false)
 
   const { data, loading, reload } = useAsync(
     async () => {
-      const [entries, stats, notes, quotes, goal] = await Promise.all([
+      const [entries, stats, notes, quotes, goal, spaces] = await Promise.all([
         repo.listLibrary(profile.id),
         repo.getStats(profile.id),
         repo.listNotes(profile.id),
         repo.listQuotes(profile.id),
         repo.getGoal(profile.id, 'year', 'books'),
+        spaceRepo.listSpaces(profile.id),
       ])
-      return { entries, stats, notes, quotes, goal }
+      return { entries, stats, notes, quotes, goal, spaces }
     },
-    [profile.id, libraryVersion, notesVersion, quotesVersion, goalsVersion],
+    [profile.id, libraryVersion, notesVersion, quotesVersion, goalsVersion, spacesVersion],
   )
 
   if (loading && !data) return <PageLoader label="Loading your dashboard" />
   if (!data) return null
 
-  const { entries, stats, notes, quotes, goal } = data
+  const { entries, stats, notes, quotes, goal, spaces } = data
   const reading = entries
     .filter((e) => e.userBook.status === 'reading')
     .sort((a, b) =>
@@ -344,6 +348,58 @@ export function DashboardPage() {
             </ul>
           )}
         </Card>
+      </section>
+
+      {/* -------------------------------------------------------- recent spaces */}
+      <section className="mb-10">
+        <SectionHeading
+          title="Recent Spaces"
+          description="Infinite canvases for thinking things through"
+          action={
+            <Button asChild size="sm" variant="ghost">
+              <Link to="/spaces">View all</Link>
+            </Button>
+          }
+        />
+        {spaces.length === 0 ? (
+          <EmptyState
+            icon={<LayoutDashboard />}
+            title="No Spaces yet"
+            description="Open a book and build its Knowledge Space, or start from a blank canvas."
+            actions={
+              <Button asChild variant="primary">
+                <Link to="/spaces">Create a Space</Link>
+              </Button>
+            }
+          />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {spaces.slice(0, 4).map((space) => (
+              <Link
+                key={space.id}
+                to={`/spaces/${space.id}`}
+                className="group rounded-xl border border-border p-2 transition-colors hover:border-border-strong hover:bg-surface-hover"
+              >
+                <div
+                  className="flex aspect-[16/10] items-center justify-center rounded-lg border border-border bg-bg-subtle"
+                  style={{
+                    backgroundImage:
+                      'radial-gradient(circle, var(--border-strong) 1px, transparent 1px)',
+                    backgroundSize: '12px 12px',
+                  }}
+                >
+                  <LayoutDashboard className="size-5 text-text-faint opacity-60" />
+                </div>
+                <p className="mt-2 truncate text-[13px] font-medium text-text">
+                  {space.name}
+                </p>
+                <p className="truncate text-[11px] text-text-faint">
+                  Edited {relativeTime(space.updatedAt)}
+                </p>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* -------------------------------------------------- continue working */}

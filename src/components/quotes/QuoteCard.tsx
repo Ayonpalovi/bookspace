@@ -1,8 +1,10 @@
-import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Badge, Card } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/button'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '@/components/ui/menu'
+import { AddToSpaceDialog } from '@/components/canvas/AddToSpaceDialog'
+import { useState } from 'react'
 import type { Book, Quote } from '@/types'
 import { formatDate } from '@/lib/utils'
 
@@ -19,6 +21,7 @@ export function QuoteCard({
   onDelete?: () => void
   showSource?: boolean
 }) {
+  const [spaceOpen, setSpaceOpen] = useState(false)
   return (
     <Card className="group relative p-5">
       <blockquote className="font-serif text-[17px] leading-relaxed tracking-tight text-text">
@@ -50,15 +53,17 @@ export function QuoteCard({
         ))}
       </div>
 
-      {(onEdit || onDelete) && (
-        <div className="absolute right-2 top-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+      <div className="absolute right-2 top-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
           <Menu>
             <MenuTrigger asChild>
               <Button size="icon-sm" variant="ghost" aria-label="Quote actions">
                 <MoreHorizontal />
               </Button>
             </MenuTrigger>
-            <MenuContent align="end" className="w-44">
+            <MenuContent align="end" className="w-48">
+              <MenuItem onSelect={() => setSpaceOpen(true)}>
+                <Plus /> Add to Space
+              </MenuItem>
               {onEdit && (
                 <MenuItem onSelect={onEdit}>
                   <Pencil /> Edit
@@ -71,8 +76,15 @@ export function QuoteCard({
               )}
             </MenuContent>
           </Menu>
-        </div>
-      )}
+      </div>
+
+      <AddToSpaceDialog
+        open={spaceOpen}
+        onOpenChange={setSpaceOpen}
+        type="quote_card"
+        content={{ quoteId: quote.id }}
+        label={book?.title ? `${book.title} quotes` : 'Quotes'}
+      />
     </Card>
   )
 }

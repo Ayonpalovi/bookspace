@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  LayoutDashboard,
   BookText,
   Copy,
   Home,
@@ -36,6 +37,7 @@ const ICONS: Record<string, ComponentType<{ className?: string }>> = {
   stats: TrendingUp,
   goal: Target,
   settings: Settings,
+  space: LayoutDashboard,
 }
 
 function TabIcon({ name, className }: { name: string | null; className?: string }) {
@@ -85,6 +87,11 @@ function TabChip({
           }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
+          onPointerDown={(event) => {
+            // Radix opens the menu on pointerdown; a left click should only
+            // switch tabs, so the menu is left to the contextmenu handler.
+            if (event.button === 0) event.preventDefault()
+          }}
           onClick={onActivate}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {

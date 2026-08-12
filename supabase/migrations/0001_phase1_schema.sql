@@ -32,7 +32,10 @@ create type activity_kind as enum (
   'quote_saved',
   'review_written',
   'shelf_created',
-  'goal_set'
+  'goal_set',
+  'space_created',
+  'space_edited',
+  'file_uploaded'
 );
 
 -- ------------------------------------------------------------------ profiles

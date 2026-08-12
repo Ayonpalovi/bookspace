@@ -8,7 +8,16 @@ import { create } from 'zustand'
  * deliberately coarse — correctness first — and gives us an obvious seam to
  * replace with per-query caching later without touching call sites.
  */
-export type DataKey = 'library' | 'notes' | 'quotes' | 'activity' | 'shelves' | 'goals'
+export type DataKey =
+  | 'library'
+  | 'notes'
+  | 'quotes'
+  | 'activity'
+  | 'shelves'
+  | 'goals'
+  | 'spaces'
+  | 'templates'
+  | 'files'
 
 interface DataState {
   versions: Record<DataKey, number>
@@ -23,6 +32,9 @@ export const useDataVersion = create<DataState>((set) => ({
     activity: 0,
     shelves: 0,
     goals: 0,
+    spaces: 0,
+    templates: 0,
+    files: 0,
   },
   bump: (...keys) =>
     set((state) => {

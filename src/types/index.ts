@@ -59,6 +59,9 @@ export type ActivityKind =
   | 'review_written'
   | 'shelf_created'
   | 'goal_set'
+  | 'space_created'
+  | 'space_edited'
+  | 'file_uploaded'
 
 export interface Profile {
   id: string

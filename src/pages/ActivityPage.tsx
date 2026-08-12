@@ -4,7 +4,9 @@ import {
   BookOpen,
   BookText,
   CircleSlash,
+  LayoutDashboard,
   Library,
+  Paperclip,
   PenLine,
   Quote as QuoteIcon,
   Sparkles,
@@ -33,6 +35,9 @@ const ICONS: Record<ActivityKind, ComponentType<{ className?: string }>> = {
   review_written: PenLine,
   shelf_created: Library,
   goal_set: Target,
+  space_created: LayoutDashboard,
+  space_edited: LayoutDashboard,
+  file_uploaded: Paperclip,
 }
 
 function dayLabel(iso: string): string {

@@ -6,8 +6,11 @@ import {
   ChevronsLeft,
   CircleSlash,
   Home,
+  LayoutDashboard,
+  LayoutTemplate,
   Library,
   LogOut,
+  Paperclip,
   Quote as QuoteIcon,
   Settings,
   Sparkles,
@@ -48,6 +51,12 @@ const LIBRARY_ITEMS: NavItem[] = [
 const KNOWLEDGE_ITEMS: NavItem[] = [
   { to: '/notes', label: 'Notes', icon: BookText },
   { to: '/quotes', label: 'Quotes', icon: QuoteIcon },
+]
+
+const WORKSPACE_ITEMS: NavItem[] = [
+  { to: '/spaces', label: 'Spaces', icon: LayoutDashboard, end: true },
+  { to: '/templates', label: 'Templates', icon: LayoutTemplate },
+  { to: '/files', label: 'Files', icon: Paperclip },
 ]
 
 const INSIGHT_ITEMS: NavItem[] = [
@@ -156,6 +165,7 @@ export function Sidebar({
         />
         <Group label="Library" items={LIBRARY_ITEMS} collapsed={collapsed} />
         <Group label="Knowledge" items={KNOWLEDGE_ITEMS} collapsed={collapsed} />
+        <Group label="Workspace" items={WORKSPACE_ITEMS} collapsed={collapsed} />
         <Group label="Insights" items={INSIGHT_ITEMS} collapsed={collapsed} />
       </nav>
 

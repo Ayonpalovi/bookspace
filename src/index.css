@@ -1,0 +1,204 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ---------------------------------------------------------------------------
+   BookSpace design tokens.
+   Neutral, editorial base. The accent is user-configurable and set at runtime
+   on the root element by the theme store (see stores/theme.ts).
+--------------------------------------------------------------------------- */
+
+@theme {
+  --font-sans: "Inter var", "Inter", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --font-serif: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia,
+    serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+
+  --radius-card: 0.75rem;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root {
+  color-scheme: light;
+
+  --bg: oklch(99% 0.002 106);
+  --bg-subtle: oklch(97.2% 0.003 106);
+  --surface: oklch(100% 0 0);
+  --surface-hover: oklch(97.5% 0.003 106);
+  --surface-sunken: oklch(96% 0.004 106);
+
+  --text: oklch(22% 0.008 106);
+  --text-muted: oklch(50% 0.008 106);
+  --text-faint: oklch(64% 0.008 106);
+
+  --border: oklch(91% 0.004 106);
+  --border-strong: oklch(84% 0.005 106);
+
+  --accent: oklch(52% 0.13 250);
+  --accent-hover: oklch(46% 0.13 250);
+  --accent-fg: oklch(99% 0 0);
+  --accent-subtle: oklch(95% 0.03 250);
+
+  --success: oklch(55% 0.13 155);
+  --warning: oklch(66% 0.13 75);
+  --danger: oklch(55% 0.19 25);
+  --danger-subtle: oklch(96% 0.02 25);
+
+  --shadow-sm: 0 1px 2px oklch(20% 0.01 106 / 0.05);
+  --shadow-md: 0 1px 3px oklch(20% 0.01 106 / 0.06),
+    0 8px 24px oklch(20% 0.01 106 / 0.06);
+  --shadow-lg: 0 2px 6px oklch(20% 0.01 106 / 0.07),
+    0 16px 48px oklch(20% 0.01 106 / 0.1);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: oklch(17.5% 0.006 106);
+  --bg-subtle: oklch(15% 0.006 106);
+  --surface: oklch(21% 0.006 106);
+  --surface-hover: oklch(24.5% 0.007 106);
+  --surface-sunken: oklch(19% 0.006 106);
+
+  --text: oklch(95% 0.004 106);
+  --text-muted: oklch(72% 0.006 106);
+  --text-faint: oklch(58% 0.006 106);
+
+  --border: oklch(28% 0.006 106);
+  --border-strong: oklch(36% 0.007 106);
+
+  --accent: oklch(70% 0.13 250);
+  --accent-hover: oklch(76% 0.13 250);
+  --accent-fg: oklch(17% 0.01 250);
+  --accent-subtle: oklch(28% 0.05 250);
+
+  --success: oklch(72% 0.14 155);
+  --warning: oklch(78% 0.13 75);
+  --danger: oklch(68% 0.17 25);
+  --danger-subtle: oklch(28% 0.06 25);
+
+  --shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.3);
+  --shadow-md: 0 1px 3px oklch(0% 0 0 / 0.35), 0 8px 24px oklch(0% 0 0 / 0.3);
+  --shadow-lg: 0 2px 6px oklch(0% 0 0 / 0.4), 0 16px 48px oklch(0% 0 0 / 0.45);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-subtle: var(--bg-subtle);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-sunken: var(--surface-sunken);
+
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-subtle: var(--accent-subtle);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior: none;
+  }
+
+  ::selection {
+    background-color: var(--accent-subtle);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  /* Quiet, thin scrollbars that match the surface. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-faint);
+    background-clip: content-box;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animate-in-fade {
+    animation: bs-fade-in 0.18s var(--ease-out-soft) both;
+  }
+
+  .animate-in-pop {
+    animation: bs-pop-in 0.16s var(--ease-out-soft) both;
+  }
+}
+
+@keyframes bs-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bs-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -38,8 +38,13 @@ function AuthFrame({
           </p>
         </div>
 
-        <p className="text-xs text-text-faint">
-          Your library, notes and quotes stay private to your account.
+        {/* On a public URL this has to be exact: there is no server yet, so an
+            account lives in the browser it was made in. Saying "private to your
+            account" alone would imply a backend that does not exist. */}
+        <p className="max-w-md text-xs leading-relaxed text-text-faint">
+          Everything you add is stored in this browser, on this device — not on a
+          server. Nothing is uploaded, and nothing syncs between devices yet.
+          Clearing your browser data clears your library.
         </p>
       </div>
 

@@ -136,7 +136,13 @@ export function CanvasStage({
         const factor = Math.exp(-event.deltaY * 0.01)
         state.zoomAt(factor, { x: event.clientX, y: event.clientY }, stage.getBoundingClientRect())
       } else {
-        state.panBy(event.shiftKey ? -event.deltaY : -event.deltaX, event.shiftKey ? 0 : -event.deltaY)
+        // Direct manipulation: the board follows the gesture, so swiping right
+        // moves the board right and swiping up moves it up — the same feel as
+        // dragging with the hand tool. Shift turns a vertical wheel into a
+        // horizontal pan for mice without a second axis.
+        const dx = event.shiftKey ? event.deltaY : event.deltaX
+        const dy = event.shiftKey ? 0 : event.deltaY
+        state.panBy(dx, dy)
       }
     }
     stage.addEventListener('wheel', onWheel, { passive: false })

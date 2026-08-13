@@ -1,8 +1,9 @@
-import { BookOpen, Check } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/primitives'
+import { Logo } from '@/components/ui/Logo'
 import { Field, Input } from '@/components/ui/field'
 import { toast } from '@/components/ui/toast'
 import * as repo from '@/data/repository'
@@ -166,9 +167,7 @@ export function WelcomePage() {
     <div className="flex min-h-dvh items-center justify-center bg-bg-subtle p-6">
       <Card className="w-full max-w-2xl p-8 shadow-[var(--shadow-md)]">
         <div className="mb-8 flex items-center gap-2">
-          <span className="flex size-7 items-center justify-center rounded-lg bg-accent text-accent-fg">
-            <BookOpen className="size-4" />
-          </span>
+          <Logo size={26} />
           <span className="font-serif text-[17px] tracking-tight">BookSpace</span>
           <span className="ml-auto text-xs text-text-faint">
             Step {step + 1} of {steps.length}

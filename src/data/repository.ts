@@ -140,6 +140,27 @@ export interface BookDraft {
   pageCount?: number | null
   language?: string | null
   genres?: string[]
+  /** Set when the book came from an external catalogue search (e.g. Open Library). */
+  externalSource?: string | null
+  externalId?: string | null
+}
+
+/**
+ * Looks for a book this user already owns from the same catalogue entry, so
+ * adding a search result twice updates the existing row instead of creating a
+ * duplicate.
+ */
+export async function findBookByExternalId(
+  userId: string,
+  externalSource: string,
+  externalId: string,
+): Promise<Book | null> {
+  const books = await visibleBooks(userId)
+  return (
+    books.find(
+      (b) => b.externalSource === externalSource && b.externalId === externalId,
+    ) ?? null
+  )
 }
 
 export async function addBook(
@@ -163,8 +184,8 @@ export async function addBook(
     language: draft.language?.trim() || null,
     genres: draft.genres ?? [],
     averageRating: null,
-    externalSource: null,
-    externalId: null,
+    externalSource: draft.externalSource ?? null,
+    externalId: draft.externalId ?? null,
     createdAt: timestamp,
     updatedAt: timestamp,
   }

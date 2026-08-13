@@ -1,9 +1,9 @@
-import { BookOpen } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
 import { PageLoader } from '@/components/ui/primitives'
+import { Logo } from '@/components/ui/Logo'
 import { useSession } from '@/stores/session'
 
 function AuthFrame({
@@ -22,9 +22,7 @@ function AuthFrame({
       {/* Editorial panel — quiet, typographic, no stock imagery. */}
       <div className="hidden w-[46%] shrink-0 flex-col justify-between border-r border-border bg-bg-subtle p-12 lg:flex">
         <div className="flex items-center gap-2">
-          <span className="flex size-7 items-center justify-center rounded-lg bg-accent text-accent-fg">
-            <BookOpen className="size-4" />
-          </span>
+          <Logo size={26} />
           <span className="font-serif text-[17px] tracking-tight">BookSpace</span>
         </div>
 

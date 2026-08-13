@@ -6,6 +6,7 @@ import { RootRedirect, SignInPage, SignUpPage } from '@/pages/AuthPages'
 import { WelcomePage } from '@/pages/WelcomePage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { LibraryPage } from '@/pages/LibraryPage'
+import { DiscoverPage } from '@/pages/DiscoverPage'
 import { BookDetailPage } from '@/pages/BookDetailPage'
 import { NotesPage } from '@/pages/NotesPage'
 import { NoteDetailPage } from '@/pages/NoteDetailPage'
@@ -23,6 +24,7 @@ import { ProfilePage } from '@/pages/ProfilePage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { useSession } from '@/stores/session'
 import { applyTheme, useThemeStore } from '@/stores/theme'
+import { requestPersistentStorage } from '@/lib/backup'
 
 function useThemeEffect() {
   const mode = useThemeStore((s) => s.mode)
@@ -44,6 +46,10 @@ export default function App() {
 
   useEffect(() => {
     void restore()
+    // Best-effort: ask the browser not to evict this origin's storage under
+    // disk pressure. Silent because most browsers grant or deny this based on
+    // site-engagement heuristics with no user-facing prompt either way.
+    void requestPersistentStorage()
   }, [restore])
 
   return (
@@ -58,6 +64,7 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/library/:filter" element={<LibraryPage />} />
+          <Route path="/discover" element={<DiscoverPage />} />
           <Route path="/books/:bookId" element={<BookDetailPage />} />
           <Route path="/notes" element={<NotesPage />} />
           <Route path="/notes/:noteId" element={<NoteDetailPage />} />

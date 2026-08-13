@@ -1,9 +1,18 @@
-import { Download, Monitor, Moon, Sun } from 'lucide-react'
-import { useState } from 'react'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Download,
+  Monitor,
+  Moon,
+  ShieldCheck,
+  Sun,
+  Upload,
+} from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Field, Input, Textarea } from '@/components/ui/field'
-import { Card, SectionHeading } from '@/components/ui/primitives'
+import { Card, ProgressBar, SectionHeading } from '@/components/ui/primitives'
 import { toast } from '@/components/ui/toast'
 import { useTab } from '@/hooks/useTab'
 import * as auth from '@/data/auth'
@@ -14,6 +23,14 @@ import { bump } from '@/stores/data'
 import { useTabs } from '@/stores/tabs'
 import { ACCENTS, useThemeStore, type AccentName, type ThemeMode } from '@/stores/theme'
 import { cn } from '@/lib/utils'
+import {
+  downloadBackup,
+  formatBytes,
+  getStorageStatus,
+  requestPersistentStorage,
+  restoreBackup,
+  type StorageStatus,
+} from '@/lib/backup'
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: 'light', label: 'Light', icon: Sun },
@@ -42,6 +59,17 @@ export function SettingsPage() {
   const [nextPassword, setNextPassword] = useState('')
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [savingPassword, setSavingPassword] = useState(false)
+
+  const [storage, setStorage] = useState<StorageStatus | null>(null)
+  const [requestingPersist, setRequestingPersist] = useState(false)
+  const [exportingBackup, setExportingBackup] = useState(false)
+  const [restoringBackup, setRestoringBackup] = useState(false)
+  const restoreInputRef = useRef<HTMLInputElement>(null)
+
+  const refreshStorage = () => {
+    void getStorageStatus().then(setStorage)
+  }
+  useEffect(refreshStorage, [])
 
   const saveProfile = async () => {
     setSavingProfile(true)
@@ -153,6 +181,61 @@ export function SettingsPage() {
     URL.revokeObjectURL(url)
     toast.success('Notes exported')
   }
+
+  const enablePersistence = async () => {
+    setRequestingPersist(true)
+    try {
+      const granted = await requestPersistentStorage()
+      refreshStorage()
+      if (granted) toast.success('Persistent storage enabled')
+      else
+        toast.error(
+          'The browser declined',
+          'This is decided automatically from how often you use the site — visiting again over the next few days usually earns it. A backup is the reliable fallback either way.',
+        )
+    } finally {
+      setRequestingPersist(false)
+    }
+  }
+
+  const runBackupDownload = async () => {
+    setExportingBackup(true)
+    try {
+      await downloadBackup()
+      toast.success('Backup downloaded')
+    } catch (caught) {
+      toast.error(
+        'Could not create the backup',
+        caught instanceof Error ? caught.message : undefined,
+      )
+    } finally {
+      setExportingBackup(false)
+    }
+  }
+
+  const runBackupRestore = async (file: File) => {
+    setRestoringBackup(true)
+    try {
+      const { records } = await restoreBackup(file)
+      bump('library', 'notes', 'quotes', 'activity', 'shelves', 'goals', 'spaces', 'templates', 'files')
+      toast.success(
+        'Backup restored',
+        `${records} records merged in. Reload if anything looks stale.`,
+      )
+    } catch (caught) {
+      toast.error(
+        'Could not restore that backup',
+        caught instanceof Error ? caught.message : undefined,
+      )
+    } finally {
+      setRestoringBackup(false)
+    }
+  }
+
+  const usagePercent =
+    storage?.usageBytes != null && storage.quotaBytes
+      ? Math.min(100, Math.round((storage.usageBytes / storage.quotaBytes) * 100))
+      : null
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">
@@ -324,6 +407,89 @@ export function SettingsPage() {
         <p className="mt-3 text-xs text-text-faint">
           Sample data is only added once per account.
         </p>
+      </Card>
+
+      <Card className="mb-5 p-5">
+        <SectionHeading
+          title="Storage & backup"
+          description="Everything lives in this browser, on this device — there is no server copy."
+        />
+
+        <div className="space-y-4">
+          <div className="rounded-lg border border-border bg-surface-sunken p-3">
+            <div className="flex items-start gap-2.5">
+              {storage?.persisted ? (
+                <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" />
+              ) : (
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-text">
+                  {storage?.persisted
+                    ? 'Storage is protected from automatic eviction'
+                    : storage?.supported
+                      ? 'Storage is not protected yet'
+                      : 'This browser cannot report storage status'}
+                </p>
+                <p className="mt-0.5 text-[12px] leading-relaxed text-text-muted">
+                  {storage?.persisted
+                    ? 'The browser has agreed not to clear this site’s data under disk pressure without asking.'
+                    : 'The browser may clear this data under disk pressure without warning. A backup is the only guarantee.'}
+                </p>
+                {usagePercent != null && (
+                  <div className="mt-2.5">
+                    <ProgressBar value={usagePercent} size="sm" label="Storage used" />
+                    <p className="mt-1 text-[11px] text-text-faint">
+                      {formatBytes(storage!.usageBytes)} of {formatBytes(storage!.quotaBytes)}{' '}
+                      used
+                    </p>
+                  </div>
+                )}
+                {storage?.supported && !storage.persisted && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="mt-2.5"
+                    onClick={enablePersistence}
+                    disabled={requestingPersist}
+                  >
+                    {requestingPersist ? 'Requesting…' : 'Request persistent storage'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={runBackupDownload} disabled={exportingBackup}>
+              <Download /> {exportingBackup ? 'Preparing…' : 'Download full backup'}
+            </Button>
+            <Button
+              onClick={() => restoreInputRef.current?.click()}
+              disabled={restoringBackup}
+            >
+              <Upload /> {restoringBackup ? 'Restoring…' : 'Restore from backup'}
+            </Button>
+            <input
+              ref={restoreInputRef}
+              type="file"
+              accept="application/json"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                event.target.value = ''
+                if (file) void runBackupRestore(file)
+              }}
+            />
+          </div>
+          <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-text-faint">
+            <CheckCircle2 className="mt-px size-3 shrink-0" />
+            The backup file includes your password hash so sign-in still works after
+            a restore — it is not plaintext, but treat the file like any other
+            local backup that can log in as you, and keep it somewhere private.
+            Restoring only adds or updates records; it never deletes anything.
+          </p>
+        </div>
       </Card>
 
       <Card className="border-danger/30 p-5">

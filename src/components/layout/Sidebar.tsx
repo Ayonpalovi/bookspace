@@ -5,6 +5,7 @@ import {
   BookText,
   ChevronsLeft,
   CircleSlash,
+  Compass,
   Home,
   LayoutDashboard,
   LayoutTemplate,
@@ -23,6 +24,7 @@ import type { ComponentType } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { Avatar } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/button'
+import { Logo } from '@/components/ui/Logo'
 import {
   Menu,
   MenuContent,
@@ -43,6 +45,7 @@ interface NavItem {
 
 const LIBRARY_ITEMS: NavItem[] = [
   { to: '/library', label: 'My Library', icon: Library, end: true },
+  { to: '/discover', label: 'Discover', icon: Compass },
   { to: '/library/reading', label: 'Currently Reading', icon: BookOpen },
   { to: '/library/want-to-read', label: 'Want to Read', icon: BookMarked },
   { to: '/library/finished', label: 'Finished', icon: Sparkles },
@@ -150,9 +153,7 @@ export function Sidebar({
           collapsed && 'justify-center px-0',
         )}
       >
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-fg">
-          <BookOpen className="size-4" />
-        </span>
+        <Logo size={26} className="shrink-0" />
         {!collapsed && (
           <span className="font-serif text-[17px] font-medium tracking-tight text-text">
             BookSpace

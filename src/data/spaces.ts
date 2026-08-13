@@ -9,6 +9,8 @@
 import { get, getAll, getAllByIndex, put, putMany, remove, removeWhere } from './db'
 import * as repo from './repository'
 import type {
+  Connection,
+  ConnectorContent,
   Space,
   SpaceKind,
   SpaceObject,
@@ -17,7 +19,7 @@ import type {
   SpaceTemplate,
   StoredFile,
 } from '@/types/canvas'
-import { STICKY_COLORS } from '@/types/canvas'
+import { RELATIONSHIP_LABEL, STICKY_COLORS } from '@/types/canvas'
 import { nowIso, uid } from '@/lib/utils'
 
 /* -------------------------------------------------------------------- spaces */
@@ -411,6 +413,63 @@ export async function replacePageObjects(
   const removedIds = existing.filter((o) => !nextIds.has(o.id)).map((o) => o.id)
   await deleteObjects(removedIds)
   await saveObjects(objects)
+}
+
+/* --------------------------------------------------------------- connections */
+
+/**
+ * Connectors read as relationships rather than drawings.
+ *
+ * A connector is stored as a `space_objects` row so it inherits z-order,
+ * locking, undo and duplication like anything else on the canvas — but its
+ * payload is structured (source, target, relationship, label), so the same
+ * edges can feed a knowledge graph, backlinks or relationship search without
+ * re-parsing anything visual. `canvas_connections` in the SQL schema is a view
+ * over exactly these columns.
+ */
+export async function listConnections(
+  userId: string,
+  options: { spaceId?: string; pageId?: string } = {},
+): Promise<Connection[]> {
+  const objects = options.pageId
+    ? await getAllByIndex<SpaceObject>('space_objects', 'by_page', options.pageId)
+    : options.spaceId
+      ? await getAllByIndex<SpaceObject>('space_objects', 'by_space', options.spaceId)
+      : await getAllByIndex<SpaceObject>('space_objects', 'by_user', userId)
+
+  return objects
+    .filter((object) => object.userId === userId && object.type === 'connector')
+    .map((object) => {
+      const content = object.content as unknown as ConnectorContent
+      if (!content.fromId || !content.toId) return null
+      const relationship = content.relationship ?? 'none'
+      return {
+        id: object.id,
+        spaceId: object.spaceId,
+        pageId: object.pageId,
+        sourceId: content.fromId,
+        targetId: content.toId,
+        relationship,
+        label:
+          content.label ||
+          (relationship !== 'none' && relationship !== 'custom'
+            ? RELATIONSHIP_LABEL[relationship]
+            : ''),
+        // Arrows at both ends means the relationship runs both ways.
+        bidirectional: Boolean(object.style.arrowStart && object.style.arrowEnd !== false),
+        createdAt: object.createdAt,
+      } satisfies Connection
+    })
+    .filter((connection): connection is Connection => connection !== null)
+}
+
+/** Everything connected to one object, in either direction. */
+export async function listConnectionsFor(
+  userId: string,
+  objectId: string,
+): Promise<Connection[]> {
+  const connections = await listConnections(userId)
+  return connections.filter((c) => c.sourceId === objectId || c.targetId === objectId)
 }
 
 /* --------------------------------------------------------------------- files */

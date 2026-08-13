@@ -1004,7 +1004,55 @@ function CanvasContextMenu({
     onClose()
   }
 
-  const items: { label: string; action: () => void; danger?: boolean }[] = selected.length
+  // A connector gets relationship-shaped actions rather than object ones.
+  const connectorItems =
+    selected.length === 1 && selected[0].type === 'connector'
+      ? (() => {
+          const connector = selected[0]
+          const style = connector.style
+          const setStyle = (changes: Record<string, unknown>) =>
+            store.getState().updateObjects(
+              [{ id: connector.id, changes: { style: { ...style, ...changes } } }],
+              { history: true },
+            )
+          return [
+            {
+              label: 'Edit label',
+              action: () => store.getState().setEditing(connector.id),
+            },
+            {
+              label: `Line: ${style.connector === 'elbow' ? 'curved' : style.connector === 'curved' ? 'straight' : 'elbow'}`,
+              action: () =>
+                setStyle({
+                  connector:
+                    style.connector === 'elbow'
+                      ? 'curved'
+                      : style.connector === 'curved'
+                        ? 'straight'
+                        : 'elbow',
+                }),
+            },
+            {
+              label: style.arrowStart ? 'Arrow: end only' : 'Arrow: both ways',
+              action: () => setStyle({ arrowStart: !style.arrowStart, arrowEnd: true }),
+            },
+            {
+              label: style.line === 'dashed' ? 'Line: solid' : 'Line: dashed',
+              action: () => setStyle({ line: style.line === 'dashed' ? 'solid' : 'dashed' }),
+            },
+            { label: 'Duplicate', action: () => store.getState().duplicateSelection() },
+            {
+              label: 'Delete connection',
+              action: () => store.getState().deleteSelection(),
+              danger: true,
+            },
+          ]
+        })()
+      : null
+
+  const items: { label: string; action: () => void; danger?: boolean }[] = connectorItems
+    ? connectorItems
+    : selected.length
     ? [
         { label: 'Duplicate', action: () => store.getState().duplicateSelection() },
         { label: 'Bring to front', action: () => store.getState().reorder(selection, 'front') },

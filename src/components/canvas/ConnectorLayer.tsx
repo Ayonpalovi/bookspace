@@ -1,25 +1,41 @@
 import { memo } from 'react'
-import type { Point, SpaceObject } from '@/types/canvas'
-import { connectorPath, resolveConnectorEnds } from './geometry'
+import type { ConnectorContent, Point, SpaceObject } from '@/types/canvas'
+import { connectorLabelPoint, connectorPath, resolveConnectorEnds } from './geometry'
+
+function dashFor(line: string | undefined, width: number): string | undefined {
+  if (line === 'dashed') return `${width * 3} ${width * 2.2}`
+  if (line === 'dotted') return `0.1 ${width * 2.4}`
+  return undefined
+}
 
 /**
  * All connectors render into one SVG layer.
  *
  * Endpoints are resolved from the live objects on every render, which is what
- * makes a connector follow the boxes it joins when they move — there is no
- * stored geometry to go stale.
+ * makes a connector follow the boxes it joins when they move, resize or rotate
+ * — there is no stored geometry to go stale.
  */
 export const ConnectorLayer = memo(function ConnectorLayer({
   connectors,
   byId,
   selection,
   draft,
+  zoom,
+  editingId,
+  onLabelChange,
+  onLabelDone,
+  onLabelDoubleClick,
 }: {
   connectors: SpaceObject[]
   byId: Map<string, SpaceObject>
   selection: string[]
   /** In-progress connector being dragged out from an object. */
   draft: { from: Point; to: Point } | null
+  zoom: number
+  editingId: string | null
+  onLabelChange: (id: string, value: string) => void
+  onLabelDone: () => void
+  onLabelDoubleClick: (id: string) => void
 }) {
   return (
     <svg
@@ -55,30 +71,110 @@ export const ConnectorLayer = memo(function ConnectorLayer({
       {connectors.map((connector) => {
         const ends = resolveConnectorEnds(connector, byId)
         if (!ends) return null
+        const content = connector.content as unknown as ConnectorContent
         const style = connector.style
+        const shape = style.connector ?? 'straight'
         const selected = selection.includes(connector.id)
-        const path = connectorPath(ends.from, ends.to, style.connector ?? 'straight')
+        const width = style.strokeWidth ?? 2
+        const path = connectorPath(ends.from, ends.to, shape)
+        const label = content.label ?? ''
+        const editing = editingId === connector.id
+        const labelAt = connectorLabelPoint(
+          ends.from,
+          ends.to,
+          shape,
+          style.labelPosition ?? 0.5,
+        )
+
         return (
-          <g key={connector.id}>
-            {/* Fat invisible stroke so the line is easy to click. */}
+          <g key={connector.id} opacity={style.opacity ?? 1}>
+            {/* Fat invisible stroke so a thin line is still easy to hit. */}
             <path
               d={path}
               fill="none"
               stroke="transparent"
-              strokeWidth={14}
+              strokeWidth={Math.max(16, width + 14)}
               className="pointer-events-auto cursor-pointer"
               data-object-id={connector.id}
             />
+            {selected && (
+              <path
+                d={path}
+                fill="none"
+                stroke="var(--accent)"
+                strokeWidth={width + 6}
+                strokeLinecap="round"
+                opacity={0.18}
+              />
+            )}
             <path
               d={path}
               fill="none"
               stroke={selected ? 'var(--accent)' : (style.stroke ?? 'var(--text-muted)')}
-              strokeWidth={style.strokeWidth ?? 2}
+              strokeWidth={width}
               strokeLinecap="round"
+              strokeDasharray={dashFor(style.line, width)}
               markerEnd={style.arrowEnd === false ? undefined : 'url(#bs-arrow-end)'}
               markerStart={style.arrowStart ? 'url(#bs-arrow-start)' : undefined}
-              opacity={connector.style.opacity ?? 1}
             />
+
+            {/* Endpoint handles, shown while the connector is selected. */}
+            {selected &&
+              [ends.from, ends.to].map((point, index) => (
+                <circle
+                  key={index}
+                  cx={point.x}
+                  cy={point.y}
+                  r={5 / zoom}
+                  fill="var(--surface)"
+                  stroke="var(--accent)"
+                  strokeWidth={1.5 / zoom}
+                />
+              ))}
+
+            {/* Label — travels with the path because it is derived from it. */}
+            {(label || editing) && (
+              <foreignObject
+                x={labelAt.x - 90}
+                y={labelAt.y - 16}
+                width={180}
+                height={32}
+                className="pointer-events-auto overflow-visible"
+              >
+                <div className="flex size-full items-center justify-center">
+                  {editing ? (
+                    <input
+                      autoFocus
+                      value={label}
+                      onChange={(event) => onLabelChange(connector.id, event.target.value)}
+                      onBlur={onLabelDone}
+                      onKeyDown={(event) => {
+                        event.stopPropagation()
+                        if (event.key === 'Enter' || event.key === 'Escape') {
+                          event.preventDefault()
+                          onLabelDone()
+                        }
+                      }}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      placeholder="describe the link"
+                      aria-label="Connector label"
+                      className="w-full rounded-md border border-accent bg-surface px-1.5 py-0.5 text-center text-[11px] text-text shadow-[var(--shadow-sm)] focus:outline-none"
+                    />
+                  ) : (
+                    <span
+                      data-object-id={connector.id}
+                      onDoubleClick={(event) => {
+                        event.stopPropagation()
+                        onLabelDoubleClick(connector.id)
+                      }}
+                      className="max-w-full cursor-pointer truncate rounded-md border border-border bg-surface px-1.5 py-0.5 text-center text-[11px] leading-snug text-text-muted shadow-[var(--shadow-sm)]"
+                    >
+                      {label}
+                    </span>
+                  )}
+                </div>
+              </foreignObject>
+            )}
           </g>
         )
       })}

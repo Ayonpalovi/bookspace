@@ -306,9 +306,16 @@ export function SettingsPage() {
           </Button>
           <Button
             onClick={async () => {
-              await seedDemoData(profile.id)
-              bump('library', 'notes', 'quotes', 'activity', 'shelves', 'goals')
-              toast.success('Sample library loaded')
+              try {
+                await seedDemoData(profile.id)
+                bump('library', 'notes', 'quotes', 'activity', 'shelves', 'goals')
+                toast.success('Sample library loaded')
+              } catch (caught) {
+                toast.error(
+                  'Could not load the sample library',
+                  caught instanceof Error ? caught.message : undefined,
+                )
+              }
             }}
           >
             Load sample library

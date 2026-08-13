@@ -21,7 +21,15 @@ import {
 } from 'lucide-react'
 import { useMemo } from 'react'
 import { useCanvas } from '@/stores/canvas'
-import { SHAPE_PRESETS, STICKY_COLORS, type ShapeKind } from '@/types/canvas'
+import {
+  RELATIONSHIP_LABEL,
+  RELATIONSHIP_TYPES,
+  SHAPE_PRESETS,
+  STICKY_COLORS,
+  type ConnectorContent,
+  type RelationshipType,
+  type ShapeKind,
+} from '@/types/canvas'
 import { cn } from '@/lib/utils'
 
 const SWATCHES = [
@@ -101,6 +109,15 @@ export function PropertiesPanel() {
   const first = selected[0]
   const types = new Set(selected.map((o) => o.type))
   const style = first.style
+
+  const setContent = (changes: Record<string, unknown>) =>
+    update(
+      selected.map((object) => ({
+        id: object.id,
+        changes: { content: { ...object.content, ...changes } },
+      })),
+      { history: true },
+    )
 
   const setStyle = (changes: Partial<typeof style>) =>
     update(
@@ -245,6 +262,55 @@ export function PropertiesPanel() {
 
       {showConnector && (
         <>
+          <Row label="Relationship">
+            <select
+              value={(first.content as unknown as ConnectorContent).relationship ?? 'none'}
+              onChange={(event) => {
+                const relationship = event.target.value as RelationshipType
+                // Choosing a preset writes the wording into the label too, so the
+                // line reads as a sentence; 'custom' leaves the text to the user.
+                setContent({
+                  relationship,
+                  label:
+                    relationship === 'none'
+                      ? ''
+                      : relationship === 'custom'
+                        ? ((first.content as unknown as ConnectorContent).label ?? '')
+                        : RELATIONSHIP_LABEL[relationship],
+                })
+              }}
+              aria-label="Relationship type"
+              className="w-full rounded-md border border-border bg-surface px-2 py-1 text-[12px] text-text focus:border-accent focus:outline-none"
+            >
+              <option value="none">No relationship</option>
+              {RELATIONSHIP_TYPES.map((value) => (
+                <option key={value} value={value}>
+                  {RELATIONSHIP_LABEL[value]}
+                </option>
+              ))}
+              <option value="custom">Custom…</option>
+            </select>
+          </Row>
+
+          <Row label="Label">
+            <input
+              value={(first.content as unknown as ConnectorContent).label ?? ''}
+              onChange={(event) =>
+                setContent({
+                  label: event.target.value,
+                  relationship:
+                    (first.content as unknown as ConnectorContent).relationship &&
+                    (first.content as unknown as ConnectorContent).relationship !== 'none'
+                      ? (first.content as unknown as ConnectorContent).relationship
+                      : 'custom',
+                })
+              }
+              placeholder="causes, leads to, makes me feel…"
+              aria-label="Connector label"
+              className="w-full rounded-md border border-border bg-surface px-2 py-1 text-[12px] text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+            />
+          </Row>
+
           <Row label="Line">
             <div className="grid grid-cols-3 gap-1">
               {(['straight', 'elbow', 'curved'] as const).map((shape) => (
@@ -264,6 +330,26 @@ export function PropertiesPanel() {
               ))}
             </div>
           </Row>
+          <Row label="Line style">
+            <div className="grid grid-cols-3 gap-1">
+              {(['solid', 'dashed', 'dotted'] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setStyle({ line: value })}
+                  className={cn(
+                    'rounded-md border px-1 py-1 text-[10px] capitalize transition-colors',
+                    (style.line ?? 'solid') === value
+                      ? 'border-accent bg-accent-subtle text-accent'
+                      : 'border-border text-text-muted hover:border-border-strong',
+                  )}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+          </Row>
+
           <Row label="Arrows">
             <div className="flex gap-1">
               <button
@@ -291,6 +377,27 @@ export function PropertiesPanel() {
                 End
               </button>
             </div>
+            <button
+              type="button"
+              onClick={() => setStyle({ arrowStart: true, arrowEnd: true })}
+              className="mt-1 w-full rounded-md border border-border px-1 py-1 text-[10px] text-text-muted transition-colors hover:border-border-strong hover:text-text"
+            >
+              Both ways ←→
+            </button>
+          </Row>
+
+          <Row label="Label position">
+            <input
+              type="range"
+              min={10}
+              max={90}
+              value={Math.round((style.labelPosition ?? 0.5) * 100)}
+              onChange={(event) =>
+                setStyle({ labelPosition: Number(event.target.value) / 100 })
+              }
+              className="w-full accent-[var(--accent)]"
+              aria-label="Label position along the connector"
+            />
           </Row>
         </>
       )}

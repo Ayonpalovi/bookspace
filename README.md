@@ -140,9 +140,21 @@ rotate, draw and connector-drag.
 and `style` bags. Adding an object type means adding a renderer in
 `ObjectView.tsx`, not a new table or a branch through the engine.
 
-**Connectors** store endpoint *ids*, not coordinates. Geometry is resolved from
-the live objects on every render, which is why a connector follows the boxes it
-joins instead of going stale.
+**Connectors are relationships, not lines.** Each stores endpoint *ids* plus a
+typed `relationship` (causes, leads to, contradicts, …) and an optional label —
+never coordinates. Geometry is resolved from the live objects on every render,
+so a connector follows the boxes it joins through moves, resizes and rotations.
+
+Because the payload is structured, the same edges are queryable as data:
+`listConnections()` in `src/data/spaces.ts` returns typed edges, and
+`canvas_connections` in migration 0004 is a Postgres view over the same rows.
+That is the foundation a knowledge graph, backlinks or relationship search will
+read from — there is no second system to keep in sync.
+
+Drag from the round handles that appear outside a selected object, or use the
+connector tool (C). Endpoints snap to the nearest connection point on whatever
+you hover, including frames. Parking two objects side by side offers a
+"Connect these" chip — an offer only; nothing is ever linked automatically.
 
 **Undo** batches a whole drag into one step: `beginInteraction()` snapshots on
 pointer-down, `endInteraction()` pushes it only if something actually changed.

@@ -133,10 +133,21 @@ async function backdateUserBook(
   await put<UserBook>('user_books', { ...userBook, ...patch })
 }
 
+/**
+ * Shelf names collide with whatever the account already has — onboarding
+ * creates "Favorites" on the empty path — so reuse rather than fail.
+ */
+async function ensureShelf(userId: string, name: string) {
+  const existing = await repo.listShelves(userId)
+  const match = existing.find((s) => s.name.toLowerCase() === name.toLowerCase())
+  return match ?? (await repo.createShelf(userId, name))
+}
+
 export async function seedDemoData(userId: string): Promise<void> {
   if (await hasSeeded(userId)) return
 
-  const shelves = await Promise.all(SHELVES.map((name) => repo.createShelf(userId, name)))
+  const shelves: Awaited<ReturnType<typeof ensureShelf>>[] = []
+  for (const name of SHELVES) shelves.push(await ensureShelf(userId, name))
   const shelfByName = new Map(shelves.map((s) => [s.name, s.id]))
 
   const [atomic, deepWork, money, thinking, almanack] = await Promise.all(

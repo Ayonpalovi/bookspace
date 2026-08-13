@@ -189,6 +189,98 @@ export function connectorPath(
   return `M ${from.x} ${from.y} C ${from.x + dx} ${from.y}, ${to.x - dx} ${to.y}, ${to.x} ${to.y}`
 }
 
+/** Where the label sits on a connector, following the path's actual shape. */
+export function connectorLabelPoint(
+  from: Point,
+  to: Point,
+  shape: 'straight' | 'elbow' | 'curved' = 'straight',
+  t = 0.5,
+): Point {
+  if (shape === 'elbow') {
+    // The elbow's long middle leg is the readable stretch.
+    const midX = (from.x + to.x) / 2
+    return { x: midX, y: from.y + (to.y - from.y) * t }
+  }
+  if (shape === 'curved') {
+    const dx = Math.abs(to.x - from.x) * 0.5
+    const c1 = { x: from.x + dx, y: from.y }
+    const c2 = { x: to.x - dx, y: to.y }
+    const u = 1 - t
+    return {
+      x: u ** 3 * from.x + 3 * u ** 2 * t * c1.x + 3 * u * t ** 2 * c2.x + t ** 3 * to.x,
+      y: u ** 3 * from.y + 3 * u ** 2 * t * c1.y + 3 * u * t ** 2 * c2.y + t ** 3 * to.y,
+    }
+  }
+  return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }
+}
+
+/** The connection point on `rect` closest to `point`, for snap-to-anchor. */
+export function nearestAnchor(
+  rect: Rect,
+  point: Point,
+): { anchor: Anchor; point: Point; distance: number } {
+  const candidates: Anchor[] = ['top', 'right', 'bottom', 'left']
+  let best = { anchor: 'auto' as Anchor, point: anchorPoint(rect, 'auto'), distance: Infinity }
+  for (const anchor of candidates) {
+    const candidate = anchorPoint(rect, anchor)
+    const distance = Math.hypot(candidate.x - point.x, candidate.y - point.y)
+    if (distance < best.distance) best = { anchor, point: candidate, distance }
+  }
+  return best
+}
+
+/**
+ * The topmost object under a canvas point, ignoring `exclude`.
+ *
+ * Connector targeting hit-tests geometrically rather than via the DOM so it
+ * also finds frames, whose bodies are deliberately click-through.
+ */
+export function objectAt(
+  point: Point,
+  objects: SpaceObject[],
+  exclude?: string,
+): SpaceObject | null {
+  let found: SpaceObject | null = null
+  for (const object of objects) {
+    if (object.id === exclude || object.hidden || object.type === 'connector') continue
+    if (!pointInRect(point, objectRect(object))) continue
+    // Prefer the object drawn on top, but never a frame over its contents.
+    if (
+      !found ||
+      (found.type === 'frame' && object.type !== 'frame') ||
+      (found.type !== 'frame' && object.type !== 'frame' && object.zIndex >= found.zIndex)
+    ) {
+      found = object
+    }
+  }
+  return found
+}
+
+/** Closest object whose edge is within `radius` of the given rect. */
+export function nearestNeighbour(
+  rect: Rect,
+  objects: SpaceObject[],
+  exclude: Set<string>,
+  radius: number,
+): SpaceObject | null {
+  const centre = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
+  let best: { object: SpaceObject; distance: number } | null = null
+  for (const object of objects) {
+    if (exclude.has(object.id) || object.type === 'connector' || object.hidden) continue
+    if (object.type === 'frame') continue
+    const other = objectRect(object)
+    // Gap between the two rectangles, zero when they overlap.
+    const dx = Math.max(other.x - (rect.x + rect.width), rect.x - (other.x + other.width), 0)
+    const dy = Math.max(other.y - (rect.y + rect.height), rect.y - (other.y + other.height), 0)
+    const gap = Math.hypot(dx, dy)
+    if (gap > radius) continue
+    const otherCentre = { x: other.x + other.width / 2, y: other.y + other.height / 2 }
+    const distance = Math.hypot(otherCentre.x - centre.x, otherCentre.y - centre.y)
+    if (!best || distance < best.distance) best = { object, distance }
+  }
+  return best?.object ?? null
+}
+
 /* -------------------------------------------------------------- snapping */
 
 export interface SnapGuide {

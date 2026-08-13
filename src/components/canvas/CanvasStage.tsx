@@ -7,10 +7,14 @@ import { STICKY_COLORS } from '@/types/canvas'
 import { ObjectView } from './ObjectView'
 import { ConnectorLayer } from './ConnectorLayer'
 import {
+  anchorPoint,
   applyResize,
   boundsOf,
   computeSnap,
   lassoSelects,
+  nearestAnchor,
+  nearestNeighbour,
+  objectAt,
   objectRect,
   pointInRect,
   rectContains,
@@ -48,6 +52,8 @@ type Interaction =
       from: Point
       to: Point
       hoverId: string | null
+      /** Anchor the drop will snap to on the hovered object. */
+      snapAnchor: Anchor
     }
 
 export function CanvasStage({
@@ -63,6 +69,8 @@ export function CanvasStage({
   const [interaction, setInteraction] = useState<Interaction>({ kind: 'none' })
   const [guides, setGuides] = useState<SnapGuide[]>([])
   const [spaceHeld, setSpaceHeld] = useState(false)
+  // Offered after a drag parks one object beside another; never applied on its own.
+  const [suggestion, setSuggestion] = useState<{ fromId: string; toId: string } | null>(null)
 
   const objects = useCanvas((s) => s.objects)
   const selection = useCanvas((s) => s.selection)
@@ -166,6 +174,8 @@ export function CanvasStage({
       }
       stage.setPointerCapture(event.pointerId)
 
+      setSuggestion(null)
+
       const handleEl = target.closest('[data-handle]') as HTMLElement | null
       const anchorEl = target.closest('[data-anchor]') as HTMLElement | null
       const objectEl = target.closest('[data-object-id]') as HTMLElement | null
@@ -211,13 +221,17 @@ export function CanvasStage({
 
       // --- connector drag from an anchor dot ---
       if (anchorEl?.dataset.anchor && objectId) {
+        const source = byId.get(objectId)
         setInteraction({
           kind: 'connect',
           fromId: objectId,
           fromAnchor: anchorEl.dataset.anchor as Anchor,
-          from: point,
+          from: source
+            ? anchorPoint(objectRect(source), anchorEl.dataset.anchor as Anchor)
+            : point,
           to: point,
           hoverId: null,
+          snapAnchor: 'auto',
         })
         return
       }
@@ -227,15 +241,21 @@ export function CanvasStage({
         setInteraction({ kind: 'draw', points: [point] })
         return
       }
-      if (tool === 'connector' && objectId) {
-        setInteraction({
-          kind: 'connect',
-          fromId: objectId,
-          fromAnchor: 'auto',
-          from: point,
-          to: point,
-          hoverId: null,
-        })
+      if (tool === 'connector') {
+        // Hit-test geometrically so frames — whose bodies are click-through —
+        // can start a connection too.
+        const source = objectAt(point, objects)
+        if (source) {
+          setInteraction({
+            kind: 'connect',
+            fromId: source.id,
+            fromAnchor: 'auto',
+            from: point,
+            to: point,
+            hoverId: null,
+            snapAnchor: 'auto',
+          })
+        }
         return
       }
       if (tool === 'eraser') {
@@ -329,15 +349,19 @@ export function CanvasStage({
           break
 
         case 'connect': {
-          const objectEl = (event.target as HTMLElement).closest(
-            '[data-object-id]',
-          ) as HTMLElement | null
-          const hoverId = objectEl?.dataset.objectId ?? null
-          setInteraction({
-            ...interaction,
-            to: point,
-            hoverId: hoverId !== interaction.fromId ? hoverId : null,
-          })
+          const target = objectAt(point, objects, interaction.fromId)
+          if (target) {
+            // Snap the endpoint to the nearest connection point and show it.
+            const snap = nearestAnchor(objectRect(target), point)
+            setInteraction({
+              ...interaction,
+              to: snap.point,
+              hoverId: target.id,
+              snapAnchor: snap.anchor,
+            })
+          } else {
+            setInteraction({ ...interaction, to: point, hoverId: null, snapAnchor: 'auto' })
+          }
           break
         }
 
@@ -477,7 +501,11 @@ export function CanvasStage({
                 fromId: interaction.fromId,
                 toId: targetId,
                 fromAnchor: interaction.fromAnchor,
-                toAnchor: 'auto',
+                // 'auto' keeps the endpoint facing the other object as things
+                // move; an explicit snap pins it to the side the user chose.
+                toAnchor: interaction.snapAnchor,
+                relationship: 'none',
+                label: '',
               },
               style: { connector: 'straight', arrowEnd: true, strokeWidth: 2 },
             })
@@ -505,6 +533,37 @@ export function CanvasStage({
             .filter(Boolean) as { id: string; changes: Partial<SpaceObject> }[]
           if (patches.length) state.updateObjects(patches)
           state.endInteraction()
+
+          // Offer a connection when a single object is parked beside another.
+          // Only an offer — nothing is created until the chip is clicked.
+          if (interaction.ids.length === 1) {
+            const moved = store.getState().objects.find((o) => o.id === interaction.ids[0])
+            if (moved && moved.type !== 'frame' && moved.type !== 'connector') {
+              const neighbour = nearestNeighbour(
+                objectRect(moved),
+                store.getState().objects,
+                new Set([moved.id]),
+                90,
+              )
+              const alreadyLinked =
+                neighbour &&
+                store.getState().objects.some((o) => {
+                  if (o.type !== 'connector') return false
+                  const { fromId, toId } = o.content as { fromId?: string; toId?: string }
+                  return (
+                    (fromId === moved.id && toId === neighbour.id) ||
+                    (fromId === neighbour.id && toId === moved.id)
+                  )
+                })
+              setSuggestion(
+                neighbour && !alreadyLinked
+                  ? { fromId: moved.id, toId: neighbour.id }
+                  : null,
+              )
+            }
+          } else {
+            setSuggestion(null)
+          }
           break
         }
 
@@ -613,8 +672,12 @@ export function CanvasStage({
         const state = store.getState()
         if (objectEl?.dataset.objectId) {
           const object = byId.get(objectEl.dataset.objectId)
-          if (object && !object.locked && TEXT_TYPES.includes(object.type)) {
-            state.setEditing(object.id)
+          if (object && !object.locked) {
+            // Connectors open their label editor; everything else its text.
+            if (object.type === 'connector' || TEXT_TYPES.includes(object.type)) {
+              state.select([object.id])
+              state.setEditing(object.id)
+            }
           }
           return
         }
@@ -685,12 +748,66 @@ export function CanvasStage({
           connectors={connectors}
           byId={byId}
           selection={selection}
+          zoom={viewport.zoom}
+          editingId={editingId}
           draft={
             interaction.kind === 'connect'
               ? { from: interaction.from, to: interaction.to }
               : null
           }
+          onLabelChange={(id, value) => {
+            const connector = byId.get(id)
+            if (!connector) return
+            store.getState().updateObjects([
+              { id, changes: { content: { ...connector.content, label: value } } },
+            ])
+          }}
+          onLabelDone={() => {
+            store.getState().setEditing(null)
+            store.getState().commit()
+          }}
+          onLabelDoubleClick={(id) => {
+            store.getState().select([id])
+            store.getState().setEditing(id)
+          }}
         />
+
+        {/* Snap target highlight while dragging a connector. */}
+        {interaction.kind === 'connect' && interaction.hoverId && (
+          <ConnectTargetHighlight
+            object={byId.get(interaction.hoverId)}
+            zoom={viewport.zoom}
+          />
+        )}
+
+        {/* Connection suggestion after parking two objects together. */}
+        {suggestion && interaction.kind === 'none' && (
+          <ConnectSuggestion
+            from={byId.get(suggestion.fromId)}
+            to={byId.get(suggestion.toId)}
+            zoom={viewport.zoom}
+            onAccept={() => {
+              store.getState().createObject({
+                type: 'connector',
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+                content: {
+                  fromId: suggestion.fromId,
+                  toId: suggestion.toId,
+                  fromAnchor: 'auto',
+                  toAnchor: 'auto',
+                  relationship: 'none',
+                  label: '',
+                },
+                style: { connector: 'straight', arrowEnd: true, strokeWidth: 2 },
+              })
+              setSuggestion(null)
+            }}
+            onDismiss={() => setSuggestion(null)}
+          />
+        )}
 
         {/* Alignment guides */}
         {guides.map((guide, index) => (
@@ -774,6 +891,94 @@ export function CanvasStage({
 
 /* ------------------------------------------------------------------ pieces */
 
+/** Ring + connection points on the object a connector is about to land on. */
+function ConnectTargetHighlight({
+  object,
+  zoom,
+}: {
+  object: SpaceObject | undefined
+  zoom: number
+}) {
+  if (!object) return null
+  const rect = objectRect(object)
+  const dot = 8 / zoom
+  return (
+    <div
+      className="pointer-events-none absolute"
+      style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
+    >
+      <div
+        className="absolute rounded-md border-accent"
+        style={{ inset: -4 / zoom, borderWidth: 2 / zoom }}
+      />
+      {ANCHORS.map((anchor) => {
+        const point = anchorPoint(
+          { x: 0, y: 0, width: rect.width, height: rect.height },
+          anchor,
+        )
+        return (
+          <span
+            key={anchor}
+            className="absolute rounded-full bg-accent"
+            style={{
+              left: point.x - dot / 2,
+              top: point.y - dot / 2,
+              width: dot,
+              height: dot,
+            }}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+/** "Connect these?" offer shown after a drag parks two objects together. */
+function ConnectSuggestion({
+  from,
+  to,
+  zoom,
+  onAccept,
+  onDismiss,
+}: {
+  from: SpaceObject | undefined
+  to: SpaceObject | undefined
+  zoom: number
+  onAccept: () => void
+  onDismiss: () => void
+}) {
+  if (!from || !to) return null
+  const a = objectRect(from)
+  const b = objectRect(to)
+  const midX = (a.x + a.width / 2 + b.x + b.width / 2) / 2
+  const midY = (a.y + a.height / 2 + b.y + b.height / 2) / 2
+
+  return (
+    <div
+      className="pointer-events-auto absolute z-20 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border border-border bg-surface px-1 py-0.5 shadow-[var(--shadow-lg)]"
+      style={{ left: midX, top: midY, transform: `translate(-50%, -50%) scale(${1 / zoom})` }}
+    >
+      <button
+        type="button"
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={onAccept}
+        className="rounded-full px-2 py-0.5 text-[11px] font-medium text-accent hover:bg-accent-subtle"
+      >
+        Connect these
+      </button>
+      <button
+        type="button"
+        aria-label="Dismiss suggestion"
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={onDismiss}
+        className="rounded-full px-1 text-[11px] text-text-faint hover:text-text"
+      >
+        ✕
+      </button>
+    </div>
+  )
+}
+
 function SelectionOverlay({
   bounds,
   zoom,
@@ -852,25 +1057,29 @@ function SelectionOverlay({
       {showAnchors && single && !locked && single.type !== 'connector' && (
         <>
           {ANCHORS.map((anchor) => {
+            // Sit outside the box so they never fight the resize handles.
+            const gap = 15 / zoom
             const position =
               anchor === 'top'
-                ? { left: bounds.width / 2 - offset, top: -offset }
+                ? { left: bounds.width / 2 - offset, top: -offset - gap }
                 : anchor === 'bottom'
-                  ? { left: bounds.width / 2 - offset, top: bounds.height - offset }
+                  ? { left: bounds.width / 2 - offset, top: bounds.height - offset + gap }
                   : anchor === 'left'
-                    ? { left: -offset, top: bounds.height / 2 - offset }
-                    : { left: bounds.width - offset, top: bounds.height / 2 - offset }
+                    ? { left: -offset - gap, top: bounds.height / 2 - offset }
+                    : { left: bounds.width - offset + gap, top: bounds.height / 2 - offset }
             return (
               <div
                 key={anchor}
                 data-anchor={anchor}
                 data-object-id={single.id}
-                title={`Connect from ${anchor}`}
-                className="pointer-events-auto absolute rounded-full bg-accent opacity-0 transition-opacity hover:opacity-100"
+                title={`Drag to connect from the ${anchor}`}
+                aria-label={`Connect from the ${anchor}`}
+                className="pointer-events-auto absolute rounded-full border-2 border-surface bg-accent shadow-[var(--shadow-sm)] transition-transform hover:scale-150"
                 style={{
                   ...position,
                   width: handleSize,
                   height: handleSize,
+                  borderWidth: 1.5 / zoom,
                   cursor: 'crosshair',
                 }}
               />

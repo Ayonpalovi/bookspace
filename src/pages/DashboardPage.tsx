@@ -28,6 +28,8 @@ import { useAsync } from '@/hooks/useAsync'
 import { useTab } from '@/hooks/useTab'
 import * as repo from '@/data/repository'
 import * as spaceRepo from '@/data/spaces'
+import { loadGameInput } from '@/data/game'
+import { activeQuest, computeProfile, computeStreak } from '@/lib/game'
 import { useSession } from '@/stores/session'
 import { useVersion } from '@/stores/data'
 import { formatNumber, pluralize, relativeTime } from '@/lib/utils'
@@ -53,7 +55,15 @@ export function DashboardPage() {
         repo.getGoal(profile.id, 'year', 'books'),
         spaceRepo.listSpaces(profile.id),
       ])
-      return { entries, stats, notes, quotes, goal, spaces }
+      // The game layer reads the same records — nothing is duplicated.
+      const gameInput = await loadGameInput(profile.id)
+      const player = computeProfile(gameInput)
+      const game = {
+        player,
+        streak: computeStreak(gameInput.sessions, player.level.level),
+        quest: activeQuest(gameInput),
+      }
+      return { entries, stats, notes, quotes, goal, spaces, game }
     },
     [profile.id, libraryVersion, notesVersion, quotesVersion, goalsVersion, spacesVersion],
   )
@@ -61,7 +71,7 @@ export function DashboardPage() {
   if (loading && !data) return <PageLoader label="Loading your dashboard" />
   if (!data) return null
 
-  const { entries, stats, notes, quotes, goal, spaces } = data
+  const { entries, stats, notes, quotes, goal, spaces, game } = data
   const reading = entries
     .filter((e) => e.userBook.status === 'reading')
     .sort((a, b) =>
@@ -127,6 +137,59 @@ export function DashboardPage() {
           <Plus /> Add book
         </Button>
       </div>
+
+      {/* ------------------------------------------------------- player strip */}
+      <Card className="mb-8 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-text-faint">
+              Level {game.player.level.level}
+            </p>
+            <p className="font-serif text-lg leading-tight tracking-tight">
+              {game.player.level.title}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] text-text-muted">
+            <span>🧠 {formatNumber(game.player.knowledge)} knowledge</span>
+            <span>⭐ {formatNumber(game.player.xp)} XP</span>
+            <span>🔥 {game.streak.current}-day ritual</span>
+            <Button asChild size="sm" variant="ghost">
+              <Link to="/player">Player card</Link>
+            </Button>
+          </div>
+        </div>
+        <ProgressBar
+          value={game.player.level.progress}
+          className="mt-3"
+          label={`${game.player.level.progress}% to level ${game.player.level.level + 1}`}
+        />
+        <p className="mt-1.5 text-[11px] tabular-nums text-text-faint">
+          {formatNumber(game.player.level.xpIntoLevel)} /{' '}
+          {formatNumber(game.player.level.xpForLevel)} XP to level{' '}
+          {game.player.level.level + 1}
+        </p>
+
+        {game.quest && (
+          <div className="mt-4 flex flex-wrap items-end justify-between gap-3 border-t border-border pt-4">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-text-faint">
+                Current quest
+              </p>
+              <p className="truncate text-[13px] font-medium text-text">
+                {game.quest.title}
+              </p>
+              <p className="text-[11px] text-text-faint">
+                {game.quest.percent}% · page {game.quest.currentPage}
+                {game.quest.totalPages ? ` of ${game.quest.totalPages}` : ''} · +
+                {game.quest.xpOnFinish} XP on completion
+              </p>
+            </div>
+            <Button asChild variant="primary" size="sm">
+              <Link to={`/books/${game.quest.bookId}`}>▶ Continue quest</Link>
+            </Button>
+          </div>
+        )}
+      </Card>
 
       {/* ------------------------------------------------- continue reading */}
       <section className="mb-10">

@@ -14,6 +14,7 @@ import { SpacesPage } from '@/pages/SpacesPage'
 import { SpaceEditorPage } from '@/pages/SpaceEditorPage'
 import { TemplatesPage } from '@/pages/TemplatesPage'
 import { FilesPage } from '@/pages/FilesPage'
+import { PlayerPage } from '@/pages/PlayerPage'
 import { GoalsPage } from '@/pages/GoalsPage'
 import { StatisticsPage } from '@/pages/StatisticsPage'
 import { ActivityPage } from '@/pages/ActivityPage'
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="/spaces/:spaceId" element={<SpaceEditorPage />} />
           <Route path="/templates" element={<TemplatesPage />} />
           <Route path="/files" element={<FilesPage />} />
+          <Route path="/player" element={<PlayerPage />} />
           <Route path="/goals" element={<GoalsPage />} />
           <Route path="/statistics" element={<StatisticsPage />} />
           <Route path="/activity" element={<ActivityPage />} />

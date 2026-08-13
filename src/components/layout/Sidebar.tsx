@@ -14,6 +14,7 @@ import {
   Quote as QuoteIcon,
   Settings,
   Sparkles,
+  Swords,
   Target,
   TrendingUp,
   User,
@@ -60,6 +61,7 @@ const WORKSPACE_ITEMS: NavItem[] = [
 ]
 
 const INSIGHT_ITEMS: NavItem[] = [
+  { to: '/player', label: 'Player', icon: Swords },
   { to: '/goals', label: 'Reading Goals', icon: Target },
   { to: '/statistics', label: 'Statistics', icon: TrendingUp },
   { to: '/activity', label: 'Activity', icon: Activity },

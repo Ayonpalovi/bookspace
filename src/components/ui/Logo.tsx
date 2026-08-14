@@ -1,30 +1,18 @@
 /**
- * The BookSpace mark: an open book with a quill rising from the spine.
- *
- * Self-contained in two colours (accent blue + white) with a transparent
- * background — it isn't meant to sit inside a separate coloured badge the way
- * the placeholder Lucide icon did. Used for the favicon, the sidebar
- * wordmark, and both auth screens, so there is exactly one source of truth.
+ * The BookSpace mark — the user's own asset (public/Logo.png), referenced
+ * as-is. It already bakes in its rounded-square badge and colour, so it's
+ * rendered directly with no wrapper background or recolouring around it.
+ * One component so every place the mark appears points at the same file.
  */
 export function Logo({ className, size = 28 }: { className?: string; size?: number }) {
   return (
-    <svg
-      viewBox="0 0 48 44"
+    <img
+      src="/Logo.png"
+      alt="BookSpace"
       width={size}
       height={size}
       className={className}
-      role="img"
-      aria-label="BookSpace"
-    >
-      <path
-        d="M24 12 C19 9 10 8 5 10.5 C3.8 11.1 3 12.3 3 13.6 L3 30.4 C3 31.9 4.5 32.9 5.9 32.4 C11 30.6 19 30.3 24 33 Z"
-        fill="#5457f5"
-      />
-      <path
-        d="M24 12 C29 9 38 8 43 10.5 C44.2 11.1 45 12.3 45 13.6 L45 30.4 C45 31.9 43.5 32.9 42.1 32.4 C37 30.6 29 30.3 24 33 Z"
-        fill="#5457f5"
-      />
-      <path d="M22 35 L26.3 16.6 L32 8 L30.8 18.3 Z" fill="#fff" />
-    </svg>
+      style={{ width: size, height: size }}
+    />
   )
 }

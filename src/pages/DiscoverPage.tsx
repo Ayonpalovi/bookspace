@@ -1,5 +1,6 @@
 import { BookMarked, Check, Compass, Loader2, Search, Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { BookCover } from '@/components/books/BookCover'
 import { Input } from '@/components/ui/field'
 import { Badge, EmptyState, PageLoader } from '@/components/ui/primitives'
@@ -7,6 +8,7 @@ import { toast } from '@/components/ui/toast'
 import { useAsync } from '@/hooks/useAsync'
 import { useTab } from '@/hooks/useTab'
 import * as repo from '@/data/repository'
+import type { LibraryEntry } from '@/types'
 import {
   coverUrl,
   searchBooks,
@@ -46,7 +48,7 @@ export function DiscoverPage() {
     [profile.id, libraryVersion],
   )
 
-  const { data: topGenres } = useAsync(
+  const { data: libraryInfo } = useAsync(
     async () => {
       const entries = await repo.listLibrary(profile.id)
       const counts = new Map<string, number>()
@@ -55,7 +57,14 @@ export function DiscoverPage() {
           counts.set(genre, (counts.get(genre) ?? 0) + 1)
         }
       }
-      return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([genre]) => genre)
+      const genres = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([genre]) => genre)
+      return {
+        genres,
+        bookCount: entries.length,
+        // Recommendations match on genre, so a book with none is invisible to
+        // them — surfaced here so the empty state can point at the fix.
+        untaggedBook: entries.find((entry) => entry.book.genres.length === 0) ?? null,
+      }
     },
     [profile.id, libraryVersion],
   )
@@ -167,7 +176,9 @@ export function DiscoverPage() {
         />
       ) : (
         <Recommendations
-          genres={topGenres ?? []}
+          genres={libraryInfo?.genres ?? []}
+          bookCount={libraryInfo?.bookCount ?? 0}
+          untaggedBook={libraryInfo?.untaggedBook ?? null}
           owned={owned ?? new Set()}
           addingId={addingId}
           onAdd={addToWishlist}
@@ -281,11 +292,15 @@ function SearchResults({
 
 function Recommendations({
   genres,
+  bookCount,
+  untaggedBook,
   owned,
   addingId,
   onAdd,
 }: {
   genres: string[]
+  bookCount: number
+  untaggedBook: LibraryEntry | null
   owned: Set<string>
   addingId: string | null
   onAdd: (book: DiscoveredBook) => void
@@ -326,11 +341,33 @@ function Recommendations({
   )
 
   if (!topGenres.length) {
+    // Two different reasons look identical from the outside (an empty
+    // recommendations panel) but need different fixes, so they get different
+    // copy: no books yet, versus books that exist but aren't tagged.
+    if (bookCount === 0) {
+      return (
+        <EmptyState
+          icon={<Compass />}
+          title="Add a few books to get recommendations"
+          description="Once your library has some genres in it, BookSpace will suggest well-regarded books in the same subjects — pulled from the same open catalogue, not invented."
+        />
+      )
+    }
     return (
       <EmptyState
         icon={<Compass />}
-        title="Add a few books to get recommendations"
-        description="Once your library has some genres in it, BookSpace will suggest well-regarded books in the same subjects — pulled from the same open catalogue, not invented."
+        title="Your books don't have genres yet"
+        description={`Recommendations are matched by genre, and none of your ${bookCount === 1 ? 'book has' : `${bookCount} books have`} one set — books added quickly with just a title skip that field. Add a genre and suggestions will appear here.`}
+        actions={
+          untaggedBook && (
+            <Link
+              to={`/books/${untaggedBook.book.id}`}
+              className="text-[13px] font-medium text-accent hover:underline"
+            >
+              Open {untaggedBook.book.title} to add one →
+            </Link>
+          )
+        }
       />
     )
   }
